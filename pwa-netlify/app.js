@@ -1,0 +1,420 @@
+
+// TAMS v25 helpers: origen/destino + UI segura.
+const TAMS_AIRPORT_NAMES = {
+  AEP:'AEROPARQUE', EZE:'EZEIZA', SFN:'SANTA FE', COR:'CORDOBA', MDZ:'MENDOZA',
+  NQN:'NEUQUEN', ROS:'ROSARIO', SLA:'SALTA', TUC:'TUCUMAN', JUJ:'JUJUY',
+  IGR:'IGUAZU', FTE:'EL CALAFATE', USH:'USHUAIA', BRC:'BARILOCHE', CRD:'COMODORO',
+  REL:'TRELEW', VDM:'VIEDMA', BHI:'BAHIA BLANCA', MDQ:'MAR DEL PLATA', RSA:'SANTA ROSA',
+  RES:'RESISTENCIA', SDE:'SANTIAGO DEL ESTERO', RGL:'RIO GALLEGOS', RGA:'RIO GRANDE',
+  IRJ:'LA RIOJA', LUQ:'SAN LUIS', UAQ:'SAN JUAN', CTC:'CATAMARCA', PSS:'POSADAS',
+  FMA:'FORMOSA', CNQ:'CORRIENTES', PRA:'PARANA', AFA:'SAN RAFAEL',
+  MVD:'MONTEVIDEO', PDP:'PUNTA DEL ESTE', SCL:'SANTIAGO', GRU:'GUARULHOS', GIG:'RIO'
+};
+
+function tamsCode(v){ return String(v||'').toUpperCase().replace(/[^A-Z]/g,''); }
+function tamsIsIata(v){ return !!TAMS_AIRPORT_NAMES[tamsCode(v)]; }
+function tamsLabel(v){
+  const c=tamsCode(v);
+  return TAMS_AIRPORT_NAMES[c] ? `${c} · ${TAMS_AIRPORT_NAMES[c]}` : (c || '-');
+}
+function tamsFixResultData(d){
+  if(!d || typeof d !== 'object') return {};
+  const x={...d};
+  const airportText=String(x.aeropuerto || x.airport || '');
+  const airportCode=(airportText.match(/\b[A-Z]{3}\b/)||[])[0] || '';
+  const movement=airportText.toUpperCase();
+  const tsp=String(x.terminalSectorPuerta || x.terminal_sector_puerta || x.terminal || x.sector || '');
+  const sector=(tsp.match(/\b[A-Z]{3}\b/g)||[]).find(c=>tamsIsIata(c));
+
+  let origen=tamsCode(x.origen || x.origin || '');
+  let destino=tamsCode(x.destino || x.destination || '');
+
+  if(movement.includes('ARRIBOS')){
+    if(sector) origen=sector;
+    if(airportCode && tamsIsIata(airportCode)) destino=airportCode;
+  }else if(movement.includes('SALIDAS')){
+    if(airportCode && tamsIsIata(airportCode)) origen=airportCode;
+    if(sector) destino=sector;
+  }else{
+    if(!tamsIsIata(origen) && sector) origen=sector;
+  }
+
+  x.origen=origen || x.origen || '';
+  x.destino=destino || x.destino || '';
+  x.origenLabel=tamsLabel(x.origen);
+  x.destinoLabel=tamsLabel(x.destino);
+  return x;
+}
+
+function tamsResultCardHTML(raw){
+  const r=tamsFixResultData(raw);
+  const matricula = r.matricula || r.registration || r.matriculaAvion || '-';
+  const posicion = r.posicion || r.position || '-';
+  const aeropuerto = r.aeropuerto || r.airport || '-';
+  const tsp = r.terminalSectorPuerta || r.terminal_sector_puerta || r.terminal || '-';
+  const programado = r.programado || r.scheduled || r.horaProgramada || '-';
+  const estimado = r.estimadoReal || r.estimado || r.estimated || r.real || '-';
+  const estado = r.estado || r.status || '-';
+  const actualizado = r.actualizado || r.updated || r.lastUpdate || new Date().toLocaleString();
+
+  return `
+    <div class="tams-result-v17">
+      <div class="tams-hero-v17">
+        <div class="tams-hero-box-v17">
+          <div class="tams-hero-label-v17">MATRÍCULA</div>
+          <div class="tams-hero-value-v17">${matricula}</div>
+        </div>
+        <div class="tams-hero-box-v17">
+          <div class="tams-hero-label-v17">POSICIÓN</div>
+          <div class="tams-hero-value-v17">${posicion}</div>
+        </div>
+      </div>
+
+      <div class="tams-detail-grid-v17">
+        <div class="tams-detail-v17"><div>AEROPUERTO</div><strong>${aeropuerto}</strong></div>
+        <div class="tams-detail-v17"><div>TERMINAL / SECTOR / PUERTA</div><strong>${tsp}</strong></div>
+        <div class="tams-detail-v17"><div>ORIGEN</div><strong>${r.origenLabel}</strong></div>
+        <div class="tams-detail-v17"><div>DESTINO</div><strong>${r.destinoLabel}</strong></div>
+        <div class="tams-detail-v17"><div>PROGRAMADO</div><strong>${programado}</strong></div>
+        <div class="tams-detail-v17"><div>ESTIMADO / REAL</div><strong>${estimado}</strong></div>
+        <div class="tams-detail-v17"><div>ESTADO</div><strong>${estado}</strong></div>
+        <div class="tams-detail-v17"><div>ÚLTIMA ACTUALIZACIÓN</div><strong>${actualizado}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+// TAMS v25 - limpia datos viejos con fechas/origen-destino mal importados
+(function(){
+  try{
+    const v='v25';
+    if(localStorage.getItem('tamsVersion')!==v){
+      localStorage.removeItem('tamsFlights'); localStorage.removeItem('flights'); localStorage.removeItem('vuelos');
+      localStorage.setItem('tamsVersion',v);
+    }
+  }catch(e){}
+})();
+const API=localStorage.getItem('tamsApi')||'http://localhost:3000';const $=id=>document.getElementById(id);let flights=JSON.parse(localStorage.getItem('tamsFlights')||'[]');
+function save(){localStorage.setItem('tamsFlights',JSON.stringify(flights));render(flights)}function nf(s){const m=String(s||'').toUpperCase().match(/AR\s?(\d{3,4})/);return m?'AR'+m[1]:''}function today(){return new Date().toISOString().slice(0,10)}
+function render(list){const el=$('saved');if(!list.length){el.innerHTML='<p>No hay vuelos guardados.</p>';return}el.innerHTML=list.map((f,i)=>`<div class="flight" data-i="${i}"><b>${f.flight}</b> ${f.date||''}<br><small>${f.origin||'-'} → ${f.destination||'-'}</small></div>`).join('');document.querySelectorAll('.flight').forEach(x=>x.onclick=()=>search(list[Number(x.dataset.i)]))}
+function show(html,err=false){$('result').innerHTML=`<div class="result-card ${err?'err':''}">${html}</div>`}function best(d){return d&&d.matches&&d.matches.length?(d.matches.find(m=>m.registration&&m.registration!=='-')||d.matches[0]):null}
+async function search(f){const num=String(f.flight||f).replace(/^AR/i,'');show(`Buscando AR${num} en TAMS...`);const p=new URLSearchParams({number:num});if(f.origin)p.set('origin',f.origin);if(f.destination)p.set('destination',f.destination);if(f.airport)p.set('airport',f.airport);if(f.deep)p.set('deep','1');try{const r=await fetch(`${API}/api/flight?${p}`);const data=await r.json();const m=best(data);if(!m){show(`<b>${data.flight||'AR'+num}</b><br>No encontrado en TAMS por ahora.<br><small>Chequeado: ${(data.checked||[]).slice(0,10).join(', ')}</small>`,true);return}const od=m.movement==='ARRIBOS'?`Origen: ${m.route||f.origin||'-'} · Destino: ${m.airport||f.destination||'-'}`:`Origen: ${m.airport||f.origin||'-'} · Destino: ${m.route||f.destination||'-'}`;show(`<h3>${m.flight}</h3><b>Matrícula:</b> ${m.registration||'-'}<br><b>Posición:</b> ${m.position||'-'}<br><b>Aeropuerto:</b> ${m.airport||'-'} · ${m.movement||'-'}<br><b>${od}</b><br><b>Programado:</b> ${m.scheduled||'-'}<br><b>Estimado/Real:</b> ${m.estimated||'-'} / ${m.actual||'-'}<br><b>Terminal/Sector/Puerta:</b> ${m.terminal||'-'} / ${m.sector||'-'} / ${m.gateOrBelt||'-'}<br><b>Estado:</b> ${m.remark||'-'}<br><small>${new Date(data.updatedAt).toLocaleString()}</small>`)}catch(e){show('Error consultando backend: '+e.message,true)}}
+async function importPDF(file){const buf=await file.arrayBuffer();pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:buf}).promise;let text='';for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p);const content=await page.getTextContent();const pt=content.items.map(i=>i.str).join(' ');if(pt.includes('Tripulación del vuelo'))break;text+='\n'+pt}flights=parseRoster(text);save();$('importStatus').textContent=`PDF importado: ${flights.length} vuelos.`}
+function parseRoster(text){
+  const out=[];
+  const months={JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12'};
+  const monthNum={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+  const monthNameByNum={1:'JAN',2:'FEB',3:'MAR',4:'APR',5:'MAY',6:'JUN',7:'JUL',8:'AUG',9:'SEP',10:'OCT',11:'NOV',12:'DEC'};
+
+  // v15:
+  // 1) Corrige el mes: si el rango dice MAY-JUN y estamos en junio, usa JUN.
+  // 2) Corrige origen/destino: ya no usa posiciones fijas, porque el PDF corre columnas.
+  //    Ahora busca códigos IATA reales dentro de cada tramo y toma los primeros dos: ORIGEN -> DESTINO.
+  const ym=text.match(/(\d{2})([A-Z]{3})(\d{2})\s*-\s*(\d{2})([A-Z]{3})(\d{2})/);
+  const now=new Date();
+  let year=ym?2000+Number(ym[6]||ym[3]):now.getFullYear();
+  let mon='JUN';
+
+  if(ym){
+    const m1=monthNum[ym[2]];
+    const m2=monthNum[ym[5]];
+    const currentMonth=now.getMonth()+1;
+    const currentYear=now.getFullYear();
+    if(currentYear===year && currentMonth>=Math.min(m1,m2) && currentMonth<=Math.max(m1,m2)){
+      mon=monthNameByNum[currentMonth];
+    }else if(m2 && m2!==m1){
+      mon=ym[5];
+    }else{
+      mon=ym[2];
+    }
+  }
+
+  const IATA=new Set([
+    'AEP','EZE','EPA','COR','MDZ','NQN','ROS','SLA','TUC','JUJ','IGR','FTE','USH','BRC','CRD','REL','VDM','BHI','MDQ','RSA',
+    'RES','SDE','RGL','RGA','IRJ','LUQ','UAQ','CTC','PSS','FMA','CNQ','PRA','SFN','AFA','LPG','PMY','RCU','RHD','SVO',
+    'MVD','PDP','SCL','GRU','GIG','POA','FLN','CWB','ASU','VVI','LPB','LIM','BOG','MIA','MAD','FCO','CUN','PUJ','HAV',
+    'SJO','GYE','UIO','CCS','PTY','MEX','SSA','REC','NAT','FOR','BSB','CNF','SDU'
+  ]);
+
+  const clean=text.replace(/\s+/g,' ');
+  const t=clean.split(' ').filter(Boolean);
+  let day='';
+
+  function isDayToken(x){
+    return /^(\d{2})(MON|TUE|WED|THU|FRI|SAT|SUN)$/.test(x||'');
+  }
+
+  function isFlightToken(x){
+    return /^AR\d{3,4}$/.test(x||'');
+  }
+
+  function normalizeAirport(x){
+    const s=String(x||'').toUpperCase().replace(/[^A-Z]/g,'');
+    return IATA.has(s)?s:'';
+  }
+
+  function airportsInSegment(seg){
+    const aps=[];
+    for(const raw of seg){
+      const ap=normalizeAirport(raw);
+      if(ap && !aps.includes(ap)) aps.push(ap);
+    }
+    return aps;
+  }
+
+  for(let i=0;i<t.length;i++){
+    const dm=String(t[i]||'').match(/^(\d{2})(MON|TUE|WED|THU|FRI|SAT|SUN)$/);
+    if(dm){
+      day=dm[1];
+      continue;
+    }
+
+    if(t[i]==='OP' && isFlightToken(t[i+1]||'')){
+      const flight=t[i+1];
+
+      // Tomamos solamente la porción de esta actividad hasta la próxima actividad/día.
+      const seg=[];
+      for(let j=i+2;j<t.length;j++){
+        if(isDayToken(t[j])) break;
+        if(t[j]==='OP' && isFlightToken(t[j+1]||'')) break;
+        if(['DH','SB','OFF','REST','SIM','VAC','AUS','LIB','C/I','C/O'].includes(t[j])) break;
+        seg.push(t[j]);
+      }
+
+      const aps=airportsInSegment(seg);
+      const origin=aps[0]||'';
+      const destination=aps[1]||'';
+
+      if(day && origin && destination){
+        out.push({
+          flight,
+          date:`${year}-${months[mon]||'06'}-${day}`,
+          origin,
+          destination
+        });
+      }
+    }
+  }
+
+  const seen=new Set();
+  return out.filter(f=>{
+    const k=[f.date,f.flight,f.origin,f.destination].join('|');
+    if(seen.has(k))return false;
+    seen.add(k);
+    return true;
+  });
+}
+function importICS(text){const out=[];for(const b of text.split('BEGIN:VEVENT').slice(1)){const s=(b.match(/SUMMARY:(.+)/)||[])[1]||'',dt=(b.match(/DTSTART[^:]*:(\d{8})/)||[])[1]||'',date=dt?`${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}`:'';for(const m of s.matchAll(/AR\s?(\d{3,4})/g))out.push({flight:'AR'+m[1],date,origin:'',destination:''})}flights=out;save();$('importStatus').textContent=`ICS importado: ${out.length} vuelos.`}
+$('btnManual').onclick=()=>{const flight=nf($('manualFlight').value);if(!flight)return show('Ingresá un vuelo AR válido',true);search({flight,airport:$('manualAirport').value.trim().toUpperCase(),deep:$('deepManual').checked})};$('btnPdf').onclick=()=>$('filePdf').click();$('btnIcs').onclick=()=>$('fileIcs').click();$('btnClear').onclick=()=>{flights=[];save();$('importStatus').textContent='Vuelos borrados.'};$('filePdf').onchange=e=>e.target.files[0]&&importPDF(e.target.files[0]);$('fileIcs').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importICS(r.result);r.readAsText(f)};$('btnToday').onclick=()=>{const l=flights.filter(f=>f.date===today());render(l);if(!l.length)show('No hay vuelos guardados para hoy.')};$('btnUpcoming').onclick=()=>{const l=flights.filter(f=>!f.date||f.date>=today()).slice(0,30);render(l)};render(flights);
+
+
+// TAMS v25 safe observer: no toca body ni html; solo transforma el bloque de resultado.
+function tamsUpgradeResultCardsSafely(){
+  try{
+    const candidates=[...document.querySelectorAll('div,section,article')].filter(el=>{
+      if(el.dataset && el.dataset.tamsV17Done) return false;
+      if(el.children.length > 4) return false;
+      const t=el.innerText || '';
+      return t.includes('Matrícula:') && t.includes('Posición:') && t.includes('Origen:') && t.includes('Destino:');
+    });
+
+    candidates.forEach(el=>{
+      const t=el.innerText || '';
+      const get=(re)=>((t.match(re)||[])[1]||'').trim();
+      const data={
+        matricula:get(/Matrícula:\s*([A-Z0-9]+)/),
+        posicion:get(/Posición:\s*([0-9]+)/),
+        aeropuerto:get(/Aeropuerto:\s*([^\n]+)/),
+        origen:get(/Origen:\s*([A-Z0-9]{2,3})/),
+        destino:get(/Destino:\s*([A-Z]{3})/),
+        programado:get(/Programado:\s*([^\n]+)/),
+        estimadoReal:get(/Estimado\/Real:\s*([^\n]+)/),
+        terminalSectorPuerta:get(/Terminal\/Sector\/Puerta:\s*([^\n]+)/),
+        estado:get(/Estado:\s*([^\n]+)/),
+        actualizado:get(/(\d{1,2}\/\d{1,2}\/\d{4},\s*[^\n]+)/)
+      };
+      el.innerHTML=tamsResultCardHTML(data);
+      el.dataset.tamsV17Done='1';
+    });
+  }catch(e){ console.warn('v17 safe upgrade skipped', e); }
+}
+document.addEventListener('DOMContentLoaded', tamsUpgradeResultCardsSafely);
+setInterval(tamsUpgradeResultCardsSafely, 800);
+
+
+// TAMS v25: click estable en tarjetas, sin bloquear búsqueda manual.
+(function(){
+  function parseCard(text){
+    const t = String(text || "").trim();
+    const m = t.match(/\b(AR\d{3,4})\b\s+(20\d{2}-\d{2}-\d{2})[\s\S]{0,80}?\b([A-Z]{3})\s*→\s*([A-Z]{3})\b/);
+    if(!m) return null;
+    return { flight:m[1], date:m[2], origin:m[3], dest:m[4] };
+  }
+
+  function getInputs(){
+    const inputs = [...document.querySelectorAll("input")];
+    return {
+      flightInput: inputs.find(i => /ar1135|1608|vuelo|flight/i.test(i.placeholder || "")) || inputs[0],
+      airportInput: inputs.find(i => /aeropuerto|airport/i.test(i.placeholder || "")) || inputs[1]
+    };
+  }
+
+  function getBuscarButton(){
+    return [...document.querySelectorAll("button")].find(b =>
+      String(b.innerText || "").trim().toLowerCase() === "buscar"
+    );
+  }
+
+  function getResultSection(){
+    const h = [...document.querySelectorAll("h1,h2,h3")].find(x =>
+      String(x.innerText || "").trim().toLowerCase() === "resultado"
+    );
+    return h ? (h.closest("section") || h.parentElement) : null;
+  }
+
+  function clearResult(message){
+    const sec = getResultSection();
+    if(!sec) return;
+    [...sec.children].forEach(ch => {
+      if(!/^H[1-6]$/.test(ch.tagName)) ch.remove();
+    });
+    const box = document.createElement("div");
+    box.className = "tams-v23-msg";
+    box.textContent = message;
+    sec.appendChild(box);
+  }
+
+  function searchFromCard(data){
+    if(!data) return;
+
+    const airport = data.dest || data.origin || "";
+    const { flightInput, airportInput } = getInputs();
+
+    if(flightInput){
+      flightInput.value = data.flight;
+      flightInput.dispatchEvent(new Event("input", {bubbles:true}));
+      flightInput.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+
+    if(airportInput){
+      airportInput.value = airport;
+      airportInput.dispatchEvent(new Event("input", {bubbles:true}));
+      airportInput.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+
+    clearResult(`Buscando ${data.flight} en ${airport}...`);
+
+    const btn = getBuscarButton();
+    if(btn) setTimeout(() => btn.click(), 120);
+
+    setTimeout(() => {
+      const sec = getResultSection();
+      if(!sec) return;
+      const txt = String(sec.innerText || "");
+      if(/Buscando\s+AR/i.test(txt) && !/MATRÍCULA|Matrícula|POSICIÓN|Posición/i.test(txt)){
+        const box = sec.querySelector(".tams-v23-msg");
+        if(box){
+          box.textContent = `No encontrado: ${data.flight} en ${airport}`;
+          box.classList.add("warn");
+        }
+      }
+    }, 9000);
+  }
+
+  function markCards(){
+    const cards = [...document.querySelectorAll("div,li,article")];
+
+    cards.forEach(el => {
+      const text = String(el.innerText || "");
+      const data = parseCard(text);
+      if(!data) return;
+
+      // Evita enganchar contenedores grandes con muchos vuelos.
+      const count = (text.match(/\bAR\d{3,4}\b/g) || []).length;
+      if(count > 1) return;
+
+      if(el.dataset.tamsV23Ready === "1") return;
+
+      el.dataset.tamsV23Ready = "1";
+      el.title = "Click para buscar este vuelo";
+      el.style.cursor = "pointer";
+
+      el.addEventListener("click", function(ev){
+        if(window.tamsManualMode) return;
+        // Si el usuario está tocando un input/botón, no hacer nada.
+        const tag = String(ev.target && ev.target.tagName || "").toLowerCase();
+        if(["input","button","label","select","textarea"].includes(tag)) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
+        searchFromCard(data);
+      });
+    });
+  }
+
+  // Importante: no intercepta clicks globales. Solo marca tarjetas.
+  document.addEventListener("DOMContentLoaded", markCards);
+  setInterval(markCards, 1200);
+})();
+
+
+
+// TAMS v25: libera búsqueda manual sin tapar el resultado real.
+(function(){
+  function getManualInputs(){
+    const inputs = [...document.querySelectorAll("input")];
+    return {
+      flightInput: inputs.find(i => /ar1135|1608|vuelo|flight/i.test(i.placeholder || "")) || inputs[0],
+      airportInput: inputs.find(i => /aeropuerto|airport/i.test(i.placeholder || "")) || inputs[1]
+    };
+  }
+
+  function isManualInput(el){
+    if(!el || el.tagName !== "INPUT") return false;
+    const { flightInput, airportInput } = getManualInputs();
+    return el === flightInput || el === airportInput;
+  }
+
+  function getResultSection(){
+    const h = [...document.querySelectorAll("h1,h2,h3")].find(x =>
+      String(x.innerText || "").trim().toLowerCase() === "resultado"
+    );
+    return h ? (h.closest("section") || h.parentElement) : null;
+  }
+
+  function clearOnlyOldMessages(){
+    const sec = getResultSection();
+    if(!sec) return;
+    sec.querySelectorAll(".tams-v23-msg,.tams-v24-msg,.tams-v25-msg").forEach(x => x.remove());
+  }
+
+  function resetManualState(){
+    window.tamsManualMode = true;
+    clearOnlyOldMessages();
+    setTimeout(() => { window.tamsManualMode = false; }, 500);
+  }
+
+  // Al editar campos manuales, solo borra carteles viejos.
+  // No borra tarjetas de resultado reales ni crea "buscando" falso.
+  document.addEventListener("focusin", function(ev){
+    if(isManualInput(ev.target)) resetManualState();
+  }, true);
+
+  document.addEventListener("input", function(ev){
+    if(isManualInput(ev.target)) resetManualState();
+  }, true);
+
+  document.addEventListener("keydown", function(ev){
+    if(isManualInput(ev.target)) resetManualState();
+  }, true);
+
+  // Al apretar Buscar manual, no tocamos el resultado:
+  // dejamos que la función original haga fetch y renderice.
+  document.addEventListener("click", function(ev){
+    const txt = String(ev.target && ev.target.innerText || "").trim().toLowerCase();
+    if(txt === "buscar"){
+      resetManualState();
+    }
+  }, true);
+})();
+

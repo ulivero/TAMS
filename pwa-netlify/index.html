@@ -1,0 +1,98 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TAMS Clean Stable</title><link rel="manifest" href="manifest.json"><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><link rel="stylesheet" href="styles.css">
+<style id="tams-v17-style">
+.tams-result-v17{
+  width:100%;
+  box-sizing:border-box;
+  border:2px solid #1264d8;
+  border-left:8px solid #1264d8;
+  border-radius:18px;
+  background:#f8fbff;
+  padding:26px;
+  box-shadow:0 8px 24px rgba(18,100,216,.08);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color:#12223a;
+}
+.tams-hero-v17{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:22px;
+  margin-bottom:26px;
+}
+.tams-hero-box-v17{
+  border:2px solid #1264d8;
+  border-radius:16px;
+  background:white;
+  padding:24px 18px;
+  text-align:center;
+}
+.tams-hero-label-v17{
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:.08em;
+  color:#496280;
+  margin-bottom:10px;
+}
+.tams-hero-value-v17{
+  font-size:52px;
+  font-weight:900;
+  line-height:1;
+  color:#0b4bb3;
+}
+.tams-detail-grid-v17{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 28px;
+}
+.tams-detail-v17{
+  border-bottom:1px solid #d8e4f3;
+  padding:14px 0;
+}
+.tams-detail-v17 div{
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:.05em;
+  color:#496280;
+}
+.tams-detail-v17 strong{
+  display:block;
+  margin-top:4px;
+  font-size:21px;
+  font-weight:700;
+  color:#12223a;
+}
+@media(max-width:800px){
+  .tams-hero-v17,.tams-detail-grid-v17{grid-template-columns:1fr}
+  .tams-hero-value-v17{font-size:42px}
+}
+</style>
+
+
+<style id="tams-v23-style">
+[data-tams-v23-ready="1"]{
+  cursor:pointer;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+[data-tams-v23-ready="1"]:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(18,100,216,.13);
+  border-color:#1264d8 !important;
+}
+.tams-v23-msg{
+  border:2px solid #1264d8;
+  border-left:8px solid #1264d8;
+  border-radius:16px;
+  background:#f8fbff;
+  padding:22px;
+  font-size:20px;
+  font-weight:800;
+  color:#12223a;
+  margin-top:16px;
+}
+.tams-v23-msg.warn{
+  border-color:#d88412;
+  background:#fff8ec;
+  color:#5c3500;
+}
+</style>
+
+</head><body><main><header><h1>TAMS Clean Stable</h1><p>Base limpia: PDF/ICS + búsqueda manual + TAMS.</p></header><section class="card"><h2>Buscar manual</h2><div class="row"><input id="manualFlight" placeholder="AR1135 o 1608"><input id="manualAirport" placeholder="Aeropuerto opcional"><label><input type="checkbox" id="deepManual"> profunda</label><button id="btnManual">Buscar</button></div></section><section class="card"><h2>Importar vuelos</h2><div class="row"><button id="btnPdf">Importar PDF roster</button><button id="btnIcs">Importar ICS</button><button id="btnClear">Borrar guardados</button><input type="file" id="filePdf" accept=".pdf" hidden><input type="file" id="fileIcs" accept=".ics,.txt" hidden></div><p id="importStatus"></p></section><section class="card"><h2>Vuelos guardados</h2><div class="row"><button id="btnToday">Vuelos de hoy</button><button id="btnUpcoming">Próximos vuelos</button></div><div id="saved"></div></section><section class="card"><h2>Resultado</h2><div id="result">Listo.</div></section></main><script src="app.js"></script></body></html>
