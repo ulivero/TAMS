@@ -1,4 +1,4 @@
-
+http://localhost:3000
 // TAMS v25 helpers: origen/destino + UI segura.
 const TAMS_AIRPORT_NAMES = {
   AEP:'AEROPARQUE', EZE:'EZEIZA', SFN:'SANTA FE', COR:'CORDOBA', MDZ:'MENDOZA',
@@ -94,7 +94,7 @@ function tamsResultCardHTML(raw){
     }
   }catch(e){}
 })();
-const API=localStorage.getItem('tamsApi')||'https://tams-backend-raog.onrender.com';const $=id=>document.getElementById(id);let flights=JSON.parse(localStorage.getItem('tamsFlights')||'[]');
+const API=localStorage.getItem('tamsApi')||'http://localhost:3000';const $=id=>document.getElementById(id);let flights=JSON.parse(localStorage.getItem('tamsFlights')||'[]');
 function save(){localStorage.setItem('tamsFlights',JSON.stringify(flights));render(flights)}function nf(s){const m=String(s||'').toUpperCase().match(/AR\s?(\d{3,4})/);return m?'AR'+m[1]:''}function today(){return new Date().toISOString().slice(0,10)}
 function render(list){const el=$('saved');if(!list.length){el.innerHTML='<p>No hay vuelos guardados.</p>';return}el.innerHTML=list.map((f,i)=>`<div class="flight" data-i="${i}"><b>${f.flight}</b> ${f.date||''}<br><small>${f.origin||'-'} → ${f.destination||'-'}</small></div>`).join('');document.querySelectorAll('.flight').forEach(x=>x.onclick=()=>search(list[Number(x.dataset.i)]))}
 function show(html,err=false){$('result').innerHTML=`<div class="result-card ${err?'err':''}">${html}</div>`}function best(d){return d&&d.matches&&d.matches.length?(d.matches.find(m=>m.registration&&m.registration!=='-')||d.matches[0]):null}
