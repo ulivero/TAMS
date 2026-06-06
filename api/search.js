@@ -47,14 +47,7 @@ export default async function handler(req, res) {
     const clean = html.replace(/\s+/g, " ");
     const idx = clean.toUpperCase().indexOf(flight.replace("AR", ""));
 
-    res.status(200).json({
-      ok: true,
-      flight,
-      airport,
-      found: idx >= 0,
-      length: html.length,
-      around: idx >= 0 ? clean.substring(Math.max(0, idx - 800), idx + 1500) : ""
-    });
+    res.status(200).json({ ok: true, flight, airport, found: idx >= 0, length: html.length, html: html.substring(0,3000) });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
