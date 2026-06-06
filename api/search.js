@@ -14,7 +14,8 @@ export default async function handler(req, res) {
       headers: { "User-Agent": "Mozilla/5.0" }
     });
 
-    const html1 = await first.text();
+    const cookie = first.headers.get("set-cookie") || "";
+const html1 = await first.text();
 
     const form = new URLSearchParams();
     form.set("__EVENTTARGET", "");
@@ -38,7 +39,8 @@ export default async function handler(req, res) {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": "Mozilla/5.0",
         "Referer": url,
-        "Origin": "http://www.tams.com.ar"
+        "Origin": "http://www.tams.com.ar",
+        "Cookie": cookie
       },
       body: form.toString()
     });
